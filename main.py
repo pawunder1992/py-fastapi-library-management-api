@@ -6,10 +6,15 @@ from sqlalchemy.orm import Session
 
 import crud
 import schemas
-from database import SessionLocal
+from database import SessionLocal, Base, engine
 
 app = FastAPI()
 add_pagination(app)
+
+
+@app.on_event("startup")
+def startup():
+    Base.metadata.create_all(bind=engine)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -29,6 +34,18 @@ def root():
 @app.get("/authors/", response_model=Page[schemas.Author])
 def read_authors(db: Annotated[Session, Depends(get_db)]):
     return crud.get_all_authors(db=db)
+
+
+@app.get("/authors/{author_id}/", response_model=schemas.Author)
+def read_single_author(
+    author_id: int, db: Annotated[Session, Depends(get_db)]
+):
+    db_author = crud.get_author_by_id(db=db, author_id=author_id)
+
+    if not db_author:
+        raise HTTPException(status_code=404, detail="Book is not found")
+
+    return db_author
 
 
 @app.post("/authors/", response_model=schemas.Author)
